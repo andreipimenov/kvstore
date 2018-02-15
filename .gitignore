@@ -1,0 +1,5 @@
+/vendor
+*.exe
+*.dll
+*.so
+*.dylib
