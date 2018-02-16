@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,10 +13,17 @@ import (
 )
 
 func main() {
-	c, err := NewConfig(config.New("etc/config.json"))
-	if err != nil {
-		log.Fatal(err)
-		return
+
+	port := flag.Int("p", -1, "server port")
+	configFile := flag.String("c", "", "configuration file")
+	flag.Parse()
+
+	c, err := NewConfig(config.New(*configFile))
+	if *configFile != "" && err != nil {
+		log.Println(err)
+	}
+	if *port >= 0 {
+		c.Port = *port
 	}
 
 	s := NewStore(store.New(c.DumpFile, c.DumpInterval))

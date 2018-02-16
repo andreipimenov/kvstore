@@ -1,9 +1,4 @@
-package main
-
-import (
-	"encoding/json"
-	"net/http"
-)
+package model
 
 //APIAuth contains login, password and token for authenticated access/interact with storage
 type APIAuth struct {
@@ -14,7 +9,7 @@ type APIAuth struct {
 
 //APIErrors contains all errors responsed by server
 type APIErrors struct {
-	Errors []APIMessage `json:"errors"`
+	Errors []*APIMessage `json:"errors"`
 }
 
 //APIMessage - common server response with code and message
@@ -37,11 +32,4 @@ type APIKeys struct {
 //APIKeyExpires - struct for request/response expiration time for specific key
 type APIKeyExpires struct {
 	Expires int64 `json:"expires"`
-}
-
-//WriteResponse - marshal to JSON and write data into response
-func WriteResponse(w http.ResponseWriter, code int, data interface{}) {
-	j, _ := json.Marshal(data)
-	w.WriteHeader(code)
-	w.Write(j)
 }

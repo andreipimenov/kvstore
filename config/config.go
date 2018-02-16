@@ -5,19 +5,19 @@ import (
 	"os"
 )
 
-//Config implements configuration from file
+//Config - driver which reads config file
 type Config struct {
 	File string
 }
 
-//New creates new Config struct
+//New creates new Config
 func New(file string) *Config {
 	return &Config{
 		File: file,
 	}
 }
 
-//Get reads file and return its data
+//Get - reads file and return raw data
 func (c *Config) Get() (interface{}, error) {
 	_, err := os.Stat(c.File)
 	if err != nil {

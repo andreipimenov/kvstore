@@ -10,7 +10,7 @@ import (
 	"github.com/gobwas/glob"
 )
 
-//Store implements cache: in-memory store with ttl and http-api
+//Store implements in-memory key-value cache
 type Store struct {
 	sync.RWMutex `json:"-"`
 	Data         map[string]interface{} `json:"data"`

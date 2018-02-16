@@ -7,8 +7,25 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/andreipimenov/kvstore/model"
 	"github.com/go-chi/chi"
 )
+
+//WriteResponse - common helper function: marshal data to JSON and write into response
+func WriteResponse(w http.ResponseWriter, code int, data interface{}) {
+	j, _ := json.Marshal(data)
+	w.WriteHeader(code)
+	w.Write(j)
+}
+
+//WriteErrorResponse - helper function for errors: wrap errs in model.APIErrors, marshal to JSON and write into response
+func WriteErrorResponse(w http.ResponseWriter, code int, errs ...*model.APIMessage) {
+	j, _ := json.Marshal(&model.APIErrors{
+		Errors: errs,
+	})
+	w.WriteHeader(code)
+	w.Write(j)
+}
 
 //JSONCtx - setup all requests mime-type to application/json
 func JSONCtx(next http.Handler) http.Handler {
@@ -31,13 +48,11 @@ func Authorization(s *Store) func(http.Handler) http.Handler {
 //LoginHandler check login/password for authorization
 func LoginHandler(c *Config, s *Store) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := &APIAuth{}
+		req := &model.APIAuth{}
 		err := json.NewDecoder(r.Body).Decode(req)
 		if err != nil {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Cannot decode request body"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Cannot decode request body",
 			})
 			return
 		}
@@ -45,16 +60,14 @@ func LoginHandler(c *Config, s *Store) http.HandlerFunc {
 			if req.Login == user.Login && req.Password == user.Password {
 				token := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Login+c.SecretKey+user.Password)))
 				s.AddAuthorizedToken(token)
-				WriteResponse(w, http.StatusOK, APIAuth{
+				WriteResponse(w, http.StatusOK, &model.APIAuth{
 					Token: token,
 				})
 				return
 			}
 		}
-		WriteResponse(w, http.StatusBadRequest, APIErrors{
-			[]APIMessage{
-				{Code: "BadRequest", Message: "Invalid login and(or) password"},
-			},
+		WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+			Code: "BadRequest", Message: "Invalid login and(or) password",
 		})
 	})
 }
@@ -62,10 +75,8 @@ func LoginHandler(c *Config, s *Store) http.HandlerFunc {
 //NotAllowedHandler - handler for "Method Not Allowed" error
 func NotAllowedHandler() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, http.StatusMethodNotAllowed, APIErrors{
-			[]APIMessage{
-				{Code: "NotAllowed", Message: "Method Not Allowed"},
-			},
+		WriteErrorResponse(w, http.StatusMethodNotAllowed, &model.APIMessage{
+			Code: "NotAllowed", Message: "Method Not Allowed",
 		})
 	})
 }
@@ -73,10 +84,8 @@ func NotAllowedHandler() http.HandlerFunc {
 //NotFoundHandler - handler for "Not Found" error
 func NotFoundHandler() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, http.StatusNotFound, APIErrors{
-			[]APIMessage{
-				{Code: "NotFound", Message: "Not Found"},
-			},
+		WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+			Code: "NotFound", Message: "Invalid API endpoint",
 		})
 	})
 }
@@ -84,7 +93,7 @@ func NotFoundHandler() http.HandlerFunc {
 //PingHandler - health check handler
 func PingHandler() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		WriteResponse(w, http.StatusOK, APIMessage{
+		WriteResponse(w, http.StatusOK, &model.APIMessage{
 			Message: "pong",
 		})
 	})
@@ -93,34 +102,28 @@ func PingHandler() http.HandlerFunc {
 //SetHandler - set value with key (add or replace)
 func SetHandler(s *Store) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		req := &APIKeyValue{}
+		req := &model.APIKeyValue{}
 		err := json.NewDecoder(r.Body).Decode(req)
 		if err != nil {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Cannot decode request body"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Cannot decode request body",
 			})
 			return
 		}
 		if req.Key == "" {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Key must being not-empty string"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Key must being not-empty string",
 			})
 			return
 		}
 		err = s.Set(req.Key, req.Value)
 		if err != nil {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Invalid value"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Invalid value",
 			})
 			return
 		}
-		WriteResponse(w, http.StatusCreated, APIMessage{
+		WriteResponse(w, http.StatusCreated, &model.APIMessage{
 			Message: "OK",
 		})
 	})
@@ -132,14 +135,12 @@ func GetHandler(s *Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		value, err := s.Get(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key),
 			})
 			return
 		}
-		WriteResponse(w, http.StatusOK, APIKeyValue{
+		WriteResponse(w, http.StatusOK, &model.APIKeyValue{
 			Value: value,
 		})
 	})
@@ -151,14 +152,12 @@ func RemoveHandler(s *Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		err := s.Remove(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key),
 			})
 			return
 		}
-		WriteResponse(w, http.StatusOK, APIMessage{
+		WriteResponse(w, http.StatusOK, &model.APIMessage{
 			Message: "OK",
 		})
 	})
@@ -169,7 +168,7 @@ func KeysHandler(s *Store) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pattern := chi.URLParam(r, "pattern")
 		keys, _ := s.Keys(pattern)
-		WriteResponse(w, http.StatusOK, APIKeys{
+		WriteResponse(w, http.StatusOK, &model.APIKeys{
 			Keys: keys,
 		})
 	})
@@ -182,10 +181,8 @@ func GetIndexHandler(s *Store) http.HandlerFunc {
 		index := chi.URLParam(r, "index")
 		value, err := s.Get(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key),
 			})
 			return
 		}
@@ -193,43 +190,35 @@ func GetIndexHandler(s *Store) http.HandlerFunc {
 		case []interface{}:
 			i, err := strconv.Atoi(index)
 			if err != nil {
-				WriteResponse(w, http.StatusBadRequest, APIErrors{
-					[]APIMessage{
-						{Code: "BadRequest", Message: "Index type must being int for this key"},
-					},
+				WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+					Code: "BadRequest", Message: "Index type must being int for this key",
 				})
 				return
 			}
 			if i < 0 || i > len(v)-1 {
-				WriteResponse(w, http.StatusBadRequest, APIErrors{
-					[]APIMessage{
-						{Code: "BadRequest", Message: "Index out of range"},
-					},
+				WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+					Code: "BadRequest", Message: "Index out of range",
 				})
 				return
 			}
-			WriteResponse(w, http.StatusOK, APIKeyValue{
+			WriteResponse(w, http.StatusOK, &model.APIKeyValue{
 				Value: v[i],
 			})
 			return
 		case map[string]interface{}:
 			if _, ok := v[index]; ok {
-				WriteResponse(w, http.StatusOK, APIKeyValue{
+				WriteResponse(w, http.StatusOK, &model.APIKeyValue{
 					Value: v[index],
 				})
 				return
 			}
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: fmt.Sprintf("Index %s is not set", index)},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: fmt.Sprintf("Index %s is not set", index),
 			})
 			return
 		default:
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Value must being []string or map[string]string"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Value must being []string or map[string]string",
 			})
 			return
 		}
@@ -242,33 +231,27 @@ func SetExpiresHandler(s *Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		_, err := s.Get(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key),
 			})
 			return
 		}
-		req := &APIKeyExpires{}
+		req := &model.APIKeyExpires{}
 		err = json.NewDecoder(r.Body).Decode(req)
 		if err != nil {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Cannot decode request body"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Cannot decode request body",
 			})
 			return
 		}
 		if req.Expires <= 0 {
-			WriteResponse(w, http.StatusBadRequest, APIErrors{
-				[]APIMessage{
-					{Code: "BadRequest", Message: "Expiration time must being positive int64 number"},
-				},
+			WriteErrorResponse(w, http.StatusBadRequest, &model.APIMessage{
+				Code: "BadRequest", Message: "Expiration time must being positive int64 number",
 			})
 			return
 		}
 		s.SetExpires(key, req.Expires)
-		WriteResponse(w, http.StatusOK, APIMessage{
+		WriteResponse(w, http.StatusOK, &model.APIMessage{
 			Message: "OK",
 		})
 	})
@@ -280,23 +263,19 @@ func GetExpiresHandler(s *Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		_, err := s.Get(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key),
 			})
 			return
 		}
 		expires, err := s.GetExpires(key)
 		if err != nil {
-			WriteResponse(w, http.StatusNotFound, APIErrors{
-				[]APIMessage{
-					{Code: "NotFound", Message: fmt.Sprintf("Error: %s", err.Error())},
-				},
+			WriteErrorResponse(w, http.StatusNotFound, &model.APIMessage{
+				Code: "NotFound", Message: fmt.Sprintf("Error: %s", err.Error()),
 			})
 			return
 		}
-		WriteResponse(w, http.StatusOK, APIKeyExpires{
+		WriteResponse(w, http.StatusOK, &model.APIKeyExpires{
 			Expires: expires,
 		})
 	})

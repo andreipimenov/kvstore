@@ -5,6 +5,7 @@ import (
 	"errors"
 )
 
+//Config - application-specific configurations
 type Config struct {
 	SecretKey     string `json:"secretKey"`
 	Authorization bool   `json:"authorization"`
@@ -14,17 +15,18 @@ type Config struct {
 	Port          int    `json:"port"`
 }
 
+//User - part of configuration for user auth data
 type User struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
 }
 
-//ConfigDriver - interface for receiving configuration data from some source (file, other server etc)
+//ConfigDriver - interface for receiving configuration from some source (file, web source etc)
 type ConfigDriver interface {
 	Get() (interface{}, error)
 }
 
-//NewConfig receives config data and create config structure
+//NewConfig returns server configuration taken from driver
 func NewConfig(driver ConfigDriver) (*Config, error) {
 	defaultCfg := &Config{
 		Port: 8080,
@@ -37,10 +39,10 @@ func NewConfig(driver ConfigDriver) (*Config, error) {
 	if !ok {
 		return defaultCfg, errors.New("error assertion interface{} to []byte")
 	}
-	cfg := &Config{}
-	err = json.Unmarshal(j, cfg)
+	c := &Config{}
+	err = json.Unmarshal(j, c)
 	if err != nil {
 		return defaultCfg, err
 	}
-	return cfg, nil
+	return c, nil
 }
