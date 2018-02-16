@@ -7,7 +7,7 @@ import (
 
 //Store - key-value storage implementation
 type Store struct {
-	sync.RWMutex
+	sync.Mutex
 	AuthorizedTokens []string
 	Driver           StoreDriver
 }
@@ -32,8 +32,8 @@ func NewStore(driver StoreDriver) *Store {
 
 //ValidToken return true if token authorized successfully
 func (s *Store) ValidToken(token string) bool {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 	for _, t := range s.AuthorizedTokens {
 		if token == t {
 			return true
@@ -45,7 +45,15 @@ func (s *Store) ValidToken(token string) bool {
 //AddAuthorizedToken adds new token
 func (s *Store) AddAuthorizedToken(token string) {
 	s.Lock()
-	s.AuthorizedTokens = append(s.AuthorizedTokens, token)
+	tokenAuthorized := false
+	for _, t := range s.AuthorizedTokens {
+		if token == t {
+			tokenAuthorized = true
+		}
+	}
+	if !tokenAuthorized {
+		s.AuthorizedTokens = append(s.AuthorizedTokens, token)
+	}
 	s.Unlock()
 }
 

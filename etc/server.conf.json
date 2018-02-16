@@ -8,6 +8,6 @@
         }
     ],
     "dumpFile": "etc/dump.json",
-    "dumpInterval": 10,
+    "dumpInterval": 0,
     "port": 8080
 }

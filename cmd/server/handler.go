@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/andreipimenov/kvstore/model"
 	"github.com/go-chi/chi"
@@ -39,7 +40,19 @@ func JSONCtx(next http.Handler) http.Handler {
 func Authorization(s *Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			//CHECK TOKEN HERE
+			auth := strings.Split(r.Header.Get("Authorization"), " ")
+			if len(auth) != 2 || auth[0] != "Token" {
+				WriteErrorResponse(w, http.StatusUnauthorized, &model.APIMessage{
+					Code: "Unauthorized", Message: "Unauthorized",
+				})
+				return
+			}
+			if !s.ValidToken(auth[1]) {
+				WriteErrorResponse(w, http.StatusUnauthorized, &model.APIMessage{
+					Code: "Unauthorized", Message: "Invalid token",
+				})
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -58,7 +71,8 @@ func LoginHandler(c *Config, s *Store) http.HandlerFunc {
 		}
 		for _, user := range c.Users {
 			if req.Login == user.Login && req.Password == user.Password {
-				token := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Login+c.SecretKey+user.Password)))
+				tokenData := fmt.Sprintf("%s%s%s", user.Login, c.SecretKey, user.Password)
+				token := fmt.Sprintf("%x", sha256.Sum256([]byte(tokenData)))
 				s.AddAuthorizedToken(token)
 				WriteResponse(w, http.StatusOK, &model.APIAuth{
 					Token: token,
