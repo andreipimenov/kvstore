@@ -1,6 +1,9 @@
 package store
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
 	"sync"
 	"time"
 
@@ -9,16 +12,29 @@ import (
 
 //Store implements cache: in-memory store with ttl and http-api
 type Store struct {
-	sync.RWMutex
-	Data    map[string]interface{}
-	Expires map[string]int64
+	sync.RWMutex `json:"-"`
+	Data         map[string]interface{} `json:"data"`
+	Expires      map[string]int64       `json:"expires"`
+	DumpFile     string                 `json:"-"`
+	DumpInterval int64                  `json:"-"`
 }
 
-//New creates Store and runs worker for removing expired keys
-func New() *Store {
+//New creates Store, runs workers for removing expired keys and autosave storage into file
+func New(dumpFile string, dumpInterval int64) *Store {
 	s := &Store{
-		Data:    map[string]interface{}{},
-		Expires: map[string]int64{},
+		Data:         map[string]interface{}{},
+		Expires:      map[string]int64{},
+		DumpFile:     dumpFile,
+		DumpInterval: dumpInterval,
+	}
+	if dumpInterval > 0 {
+		fileData, err := ioutil.ReadFile(dumpFile)
+		if err != nil {
+			log.Printf("Error loading storage dump: %s\n", err.Error())
+		} else {
+			json.Unmarshal(fileData, s)
+		}
+		go s.dumpWorker()
 	}
 	go s.expiresWorker()
 	return s
@@ -31,11 +47,20 @@ func (s *Store) expiresWorker() {
 		go func() {
 			currentTime := time.Now().Unix()
 			for key, value := range s.Expires {
-				if currentTime > value {
+				if currentTime >= value {
 					s.Remove(key)
 				}
 			}
 		}()
+	}
+}
+
+//dumpWorker saves store to file
+func (s *Store) dumpWorker() {
+	for {
+		<-time.After(time.Duration(s.DumpInterval) * time.Second)
+		j, _ := json.Marshal(s)
+		ioutil.WriteFile(s.DumpFile, j, 0644)
 	}
 }
 
@@ -88,7 +113,7 @@ func (s *Store) GetExpires(key string) (int64, bool) {
 	s.RLock()
 	defer s.RUnlock()
 	if value, ok := s.Expires[key]; ok {
-		return time.Now().Unix() - value, true
+		return value - time.Now().Unix(), true
 	}
 	return 0, false
 }

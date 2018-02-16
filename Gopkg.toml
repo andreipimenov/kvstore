@@ -25,6 +25,14 @@
 #   unused-packages = true
 
 
+[[constraint]]
+  name = "github.com/go-chi/chi"
+  version = "3.3.2"
+
+[[constraint]]
+  name = "github.com/gobwas/glob"
+  version = "0.2.3"
+
 [prune]
   go-tests = true
   unused-packages = true

@@ -1,2 +1,2 @@
-# kv
-Key-Value In-Memory Store
+# KVStore
+Key-Value In-Memory Store implemented in Golang.

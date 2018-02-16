@@ -5,6 +5,13 @@ import (
 	"net/http"
 )
 
+//APIAuth contains login, password and token for authenticated access/interact with storage
+type APIAuth struct {
+	Login    string `json:"login,omitempty"`
+	Password string `json:"password,omitempty"`
+	Token    string `json:"token,omitempty"`
+}
+
 //APIErrors contains all errors responsed by server
 type APIErrors struct {
 	Errors []APIMessage `json:"errors"`
@@ -25,6 +32,11 @@ type APIKeyValue struct {
 //APIKeys - server response for multiple APIKeys
 type APIKeys struct {
 	Keys []string `json:"keys"`
+}
+
+//APIKeyExpires - struct for request/response expiration time for specific key
+type APIKeyExpires struct {
+	Expires int64 `json:"expires"`
 }
 
 //WriteResponse - marshal to JSON and write data into response

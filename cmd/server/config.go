@@ -6,7 +6,17 @@ import (
 )
 
 type Config struct {
-	Port int `json:"port"`
+	SecretKey     string `json:"secretKey"`
+	Authorization bool   `json:"authorization"`
+	Users         []User `json:"users"`
+	DumpFile      string `json:"dumpFile"`
+	DumpInterval  int64  `json:"dumpInterval"`
+	Port          int    `json:"port"`
+}
+
+type User struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }
 
 //ConfigDriver - interface for receiving configuration data from some source (file, other server etc)

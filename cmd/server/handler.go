@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,47 @@ func JSONCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
+	})
+}
+
+//Authorization - middelware for checking tokens
+func Authorization(s *Store) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			//CHECK TOKEN HERE
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+//LoginHandler check login/password for authorization
+func LoginHandler(c *Config, s *Store) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req := &APIAuth{}
+		err := json.NewDecoder(r.Body).Decode(req)
+		if err != nil {
+			WriteResponse(w, http.StatusBadRequest, APIErrors{
+				[]APIMessage{
+					{Code: "BadRequest", Message: "Cannot decode request body"},
+				},
+			})
+			return
+		}
+		for _, user := range c.Users {
+			if req.Login == user.Login && req.Password == user.Password {
+				token := fmt.Sprintf("%x", sha256.Sum256([]byte(user.Login+c.SecretKey+user.Password)))
+				s.AddAuthorizedToken(token)
+				WriteResponse(w, http.StatusOK, APIAuth{
+					Token: token,
+				})
+				return
+			}
+		}
+		WriteResponse(w, http.StatusBadRequest, APIErrors{
+			[]APIMessage{
+				{Code: "BadRequest", Message: "Invalid login and(or) password"},
+			},
+		})
 	})
 }
 
@@ -57,6 +99,14 @@ func SetHandler(s *Store) http.HandlerFunc {
 			WriteResponse(w, http.StatusBadRequest, APIErrors{
 				[]APIMessage{
 					{Code: "BadRequest", Message: "Cannot decode request body"},
+				},
+			})
+			return
+		}
+		if req.Key == "" {
+			WriteResponse(w, http.StatusBadRequest, APIErrors{
+				[]APIMessage{
+					{Code: "BadRequest", Message: "Key must being not-empty string"},
 				},
 			})
 			return
@@ -183,5 +233,71 @@ func GetIndexHandler(s *Store) http.HandlerFunc {
 			})
 			return
 		}
+	})
+}
+
+//SetExpiresHandler - set expiration time for key
+func SetExpiresHandler(s *Store) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := chi.URLParam(r, "key")
+		_, err := s.Get(key)
+		if err != nil {
+			WriteResponse(w, http.StatusNotFound, APIErrors{
+				[]APIMessage{
+					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
+				},
+			})
+			return
+		}
+		req := &APIKeyExpires{}
+		err = json.NewDecoder(r.Body).Decode(req)
+		if err != nil {
+			WriteResponse(w, http.StatusBadRequest, APIErrors{
+				[]APIMessage{
+					{Code: "BadRequest", Message: "Cannot decode request body"},
+				},
+			})
+			return
+		}
+		if req.Expires <= 0 {
+			WriteResponse(w, http.StatusBadRequest, APIErrors{
+				[]APIMessage{
+					{Code: "BadRequest", Message: "Expiration time must being positive int64 number"},
+				},
+			})
+			return
+		}
+		s.SetExpires(key, req.Expires)
+		WriteResponse(w, http.StatusOK, APIMessage{
+			Message: "OK",
+		})
+	})
+}
+
+//GetExpiresHandler - get expiration time for key
+func GetExpiresHandler(s *Store) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := chi.URLParam(r, "key")
+		_, err := s.Get(key)
+		if err != nil {
+			WriteResponse(w, http.StatusNotFound, APIErrors{
+				[]APIMessage{
+					{Code: "NotFound", Message: fmt.Sprintf("Key %s not found", key)},
+				},
+			})
+			return
+		}
+		expires, err := s.GetExpires(key)
+		if err != nil {
+			WriteResponse(w, http.StatusNotFound, APIErrors{
+				[]APIMessage{
+					{Code: "NotFound", Message: fmt.Sprintf("Error: %s", err.Error())},
+				},
+			})
+			return
+		}
+		WriteResponse(w, http.StatusOK, APIKeyExpires{
+			Expires: expires,
+		})
 	})
 }

@@ -1,3 +1,13 @@
 {
+    "secretKey": "84bb74901785d8ad4ecb90700b114ef4",
+    "authorization": true,
+    "users": [
+        {
+            "login": "root",
+            "password": ""
+        }
+    ],
+    "dumpFile": "etc/dump.json",
+    "dumpInterval": 0,
     "port": 8080
 }

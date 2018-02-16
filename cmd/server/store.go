@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
+//Store - key-value storage implementation
 type Store struct {
-	Driver StoreDriver
+	sync.RWMutex
+	AuthorizedTokens []string
+	Driver           StoreDriver
 }
 
 //StoreDriver - interface for store
@@ -21,8 +25,28 @@ type StoreDriver interface {
 //NewStore creates store with specific driver
 func NewStore(driver StoreDriver) *Store {
 	return &Store{
-		Driver: driver,
+		AuthorizedTokens: []string{},
+		Driver:           driver,
 	}
+}
+
+//ValidToken return true if token authorized successfully
+func (s *Store) ValidToken(token string) bool {
+	s.RLock()
+	defer s.RUnlock()
+	for _, t := range s.AuthorizedTokens {
+		if token == t {
+			return true
+		}
+	}
+	return false
+}
+
+//AddAuthorizedToken adds new token
+func (s *Store) AddAuthorizedToken(token string) {
+	s.Lock()
+	s.AuthorizedTokens = append(s.AuthorizedTokens, token)
+	s.Unlock()
 }
 
 //ValidValue returns true if value is string, slice of strings or map of strings by strings
@@ -82,4 +106,17 @@ func (s *Store) Keys(pattern string) ([]string, error) {
 		return keys, nil
 	}
 	return keys, fmt.Errorf("keys not found by pattern: %s", pattern)
+}
+
+//SetExpires set expiration time in seconds for key
+func (s *Store) SetExpires(key string, expires int64) {
+	s.Driver.SetExpires(key, expires)
+}
+
+//GetExpires returns expiration time in seconds for key
+func (s *Store) GetExpires(key string) (int64, error) {
+	if expires, ok := s.Driver.GetExpires(key); ok {
+		return expires, nil
+	}
+	return 0, fmt.Errorf("expiration time for key %s is not set", key)
 }
