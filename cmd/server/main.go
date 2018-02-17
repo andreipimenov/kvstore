@@ -13,9 +13,8 @@ import (
 )
 
 func main() {
-
-	port := flag.Int("p", -1, "server port")
-	configFile := flag.String("c", "", "configuration file")
+	configFile := flag.String("config", "", "configuration file")
+	port := flag.Int("port", -1, "server port")
 	flag.Parse()
 
 	c, err := NewConfig(config.New(*configFile))
@@ -38,7 +37,9 @@ func main() {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/ping", PingHandler())
+
 		r.Post("/login", LoginHandler(c, s))
+
 		r.Route("/keys", func(r chi.Router) {
 			if c.Authorization {
 				r.Use(Authorization(s))

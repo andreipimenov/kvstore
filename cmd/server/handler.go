@@ -58,7 +58,7 @@ func Authorization(s *Store) func(http.Handler) http.Handler {
 	}
 }
 
-//LoginHandler check login/password for authorization
+//LoginHandler process authorization
 func LoginHandler(c *Config, s *Store) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		req := &model.APIAuth{}
