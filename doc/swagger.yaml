@@ -1,0 +1,289 @@
+swagger: "2.0"
+
+info:
+  version: "0.0.1"
+  title: KVStore
+  description: In-memory Key-Value storage implementation in Golang
+host: "127.0.0.1"
+basePath: /api/v1
+tags:
+  - name: Ping
+  - name: Keys 
+  - name: Login
+
+paths:
+  /api/v1/ping:
+    get:
+      tags:
+        - Ping
+      summary: |
+        Check if server launched and ready for communication
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/PingResponse'
+
+  /api/v1/keys/{key}/values:
+    get:
+      tags:
+        - Keys
+      summary: Get value by key
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+          description: Key identifier from storage
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/ValueResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+  
+  /api/v1/keys/{key}/values/{index}:
+    get:
+      tags:
+        - Keys
+      summary: Get value by key and index (from slices and maps)
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+          description: Key identifier from storage
+        - in: path
+          name: index
+          type: string
+          required: true
+          description: Index of slice or map
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/ValueResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /api/v1/keys:
+    post:
+      tags:
+        - Keys
+      summary: Set key-value pair
+      parameters:
+        - in: body
+          required: true
+          description: Object with key and value (string, slice or map)
+          schema:
+            $ref: '#/definitions/KeyRequest'
+      produces:
+        - application/json
+      responses:
+        201:
+          description: Created
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /api/v1/keys/{key}:
+    get:
+      tags:
+        - Keys
+      summary: Get keys by key glob pattern
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/KeysResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+    delete:
+      tags:
+        - Keys
+      summary: Key identifier
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /api/v1/keys/{key}/expires:
+    get:
+      tags:
+        - Keys
+      summary: Get expiration time by key
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/Expires'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+    post:
+      tags:
+        - Keys
+      summary: Set expiration time for key
+      parameters:
+        - in: path
+          name: key
+          type: string
+          required: true
+        - in: body
+          required: true
+          description: Object with expiration time (int64) in seconds
+          schema:
+            $ref: '#/definitions/Expires'
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /api/v1/login:
+    post:
+      tags:
+        - Login
+      summary: Simple autorization
+      parameters:
+        - in: body
+          required: true
+          description: Object with login and password
+          schema:
+            $ref: '#/definitions/Login'
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/Token'
+        400:
+          description: Bad request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+definitions:
+  KeyRequest:
+    type: object
+    properties:
+      key:
+        type: string
+        example: name
+      value:
+        oneOf:
+          - type: string
+          - type: array
+          - type: object
+        example: John Doe  
+  Expires:
+    type: object
+    properties:
+      expires:
+        type: integer
+        example: 3600
+  Token:
+    type: object
+    properties:
+      token:
+        type: string
+        description: Authorized token
+  Login:
+    type: object
+    properties:
+      login:
+        type: string
+      password:
+        type: string
+  PingResponse:
+    type: object
+    properties:
+      message:
+        type: string
+        example: pong
+  MessageResponse:
+    type: object
+    properties:
+      message:
+        type: string
+        description: Message about status of action
+        example: OK
+  ValueResponse:
+    type: object
+    properties:
+      value:
+        oneOf:
+          - type: string
+          - type: array
+          - type: object
+        example: Hello World
+  KeysResponse:
+    type: object
+    properties:
+      value:
+        type: array
+        items:
+          type: string
+  ErrorResponse:
+    type: object
+    properties:
+      errors:
+        type: array
+        items:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Common error type
+            message:
+              type: string
+              description: Detailed error message
