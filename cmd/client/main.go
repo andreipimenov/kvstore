@@ -15,8 +15,6 @@ func main() {
 	configFile := flag.String("config", "", "configuration file")
 	port := flag.Int("port", -1, "client port")
 	server := flag.String("server", "", "server host:port")
-	login := flag.String("login", "", "user login")
-	password := flag.String("password", "", "user password")
 	flag.Parse()
 
 	c, err := NewConfig(config.New(*configFile))
@@ -34,12 +32,8 @@ func main() {
 			c.ServerPort = serverPort
 		}
 	}
-	if *login != "" && *password != "" {
-		c.Login = *login
-		c.Password = *password
-	}
 
-	cl := NewClient(c.ServerHost, c.ServerPort, c.Login, c.Password)
+	cl := NewClient(c.ServerHost, c.ServerPort)
 	http.Handle("/", cl.WebUI())
 	http.Handle("/process", cl.ProcessWebUI())
 	log.Printf("Start listening on port %d", c.Port)

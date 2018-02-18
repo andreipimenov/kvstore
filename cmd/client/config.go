@@ -9,8 +9,6 @@ import (
 type Config struct {
 	ServerHost string `json:"serverHost"`
 	ServerPort int    `json:"serverPort"`
-	Login      string `json:"login"`
-	Password   string `json:"password"`
 	Port       int    `json:"port"`
 }
 

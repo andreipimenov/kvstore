@@ -15,21 +15,16 @@ import (
 
 //Client - client implementation for interacting with "kvstore" server
 type Client struct {
-	ServerHost      string
-	ServerPort      int
-	Login           string
-	Password        string
-	AuthorizedToken string
-	Client          *http.Client
+	ServerHost string
+	ServerPort int
+	Client     *http.Client
 }
 
 //NewClient creates client
-func NewClient(serverHost string, serverPort int, login string, password string) *Client {
+func NewClient(serverHost string, serverPort int) *Client {
 	return &Client{
 		ServerHost: serverHost,
 		ServerPort: serverPort,
-		Login:      login,
-		Password:   password,
 		Client: &http.Client{
 			Timeout: time.Duration(30 * time.Second),
 		},
@@ -37,10 +32,13 @@ func NewClient(serverHost string, serverPort int, login string, password string)
 }
 
 //ProcessRequest implements request to api and returns string representation of response OR error
-func (c *Client) ProcessRequest(method string, uri string, body io.Reader) string {
+func (c *Client) ProcessRequest(method string, uri string, token interface{}, body io.Reader) string {
 	req, err := http.NewRequest(method, fmt.Sprintf("http://%s:%d/api/v1%s", c.ServerHost, c.ServerPort, uri), body)
 	if err != nil {
 		return fmt.Sprintf("ERROR: %s\n", err.Error())
+	}
+	if token != nil {
+		req.Header.Set("Authorization", fmt.Sprintf("Token %v", token))
 	}
 	resp, err := c.Client.Do(req)
 	if err != nil {
@@ -59,55 +57,64 @@ func (c *Client) ProcessRequest(method string, uri string, body io.Reader) strin
 
 //Ping - healthcheck
 func (c *Client) Ping() string {
-	return c.ProcessRequest(http.MethodGet, "/ping", nil)
+	return c.ProcessRequest(http.MethodGet, "/ping", nil, nil)
 }
 
 //Get returns value by key or error representation
-func (c *Client) Get(key string) string {
-	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/values", key), nil)
+func (c *Client) Get(key string, token interface{}) string {
+	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/values", key), token, nil)
 }
 
 //GetIndex returns indexed value from list or map
-func (c *Client) GetIndex(key string, index interface{}) string {
-	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/values/%v", key, index), nil)
+func (c *Client) GetIndex(key string, index interface{}, token interface{}) string {
+	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/values/%v", key, index), token, nil)
 }
 
 //Set - set value by key
-func (c *Client) Set(key string, value string) string {
+func (c *Client) Set(key string, value string, token interface{}) string {
 	var v interface{}
 	err := json.Unmarshal([]byte(value), &v)
 	if err != nil {
 		//Here the big limitation cause string respresentation of json will being escaped
 		//TODO: check if data is string OR json-style list/map and make if flexible
-	 	v = value
+		v = value
 	}
 	j, _ := json.Marshal(&model.APIKeyValue{
 		Key: key, Value: v,
 	})
-	return c.ProcessRequest(http.MethodPost, "/keys", bytes.NewReader(j))
+	return c.ProcessRequest(http.MethodPost, "/keys", token, bytes.NewReader(j))
 }
 
 //Remove - remove key
-func (c *Client) Remove(key string) string {
-	return c.ProcessRequest(http.MethodDelete, fmt.Sprintf("/keys/%s", key), nil)
+func (c *Client) Remove(key string, token interface{}) string {
+	return c.ProcessRequest(http.MethodDelete, fmt.Sprintf("/keys/%s", key), token, nil)
 }
 
 //Keys - returns keys by pattern
-func (c *Client) Keys(pattern string) string {
-	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s", pattern), nil)
+func (c *Client) Keys(pattern string, token interface{}) string {
+	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s", pattern), token, nil)
 }
 
 //SetExpires - set expiration time for key
-func (c *Client) SetExpires(key string, expires int64) string {
+func (c *Client) SetExpires(key string, expires int64, token interface{}) string {
 	j, _ := json.Marshal(&model.APIKeyExpires{
 		Expires: expires,
 	})
-	return c.ProcessRequest(http.MethodPost, fmt.Sprintf("/keys/%s/expires", key), bytes.NewReader(j))
+	return c.ProcessRequest(http.MethodPost, fmt.Sprintf("/keys/%s/expires", key), token, bytes.NewReader(j))
 }
 
 //GetExpires - returns expiration time for key
-func (c *Client) GetExpires(key string) string {
-	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/expires", key), nil)
+func (c *Client) GetExpires(key string, token interface{}) string {
+	return c.ProcessRequest(http.MethodGet, fmt.Sprintf("/keys/%s/expires", key), token, nil)
+}
+
+//Login - returns token
+func (c *Client) Login(login string, password string) string {
+	j, _ := json.Marshal(&model.APIAuth{
+		Login:    login,
+		Password: password,
+	})
+	return c.ProcessRequest(http.MethodPost, "/login", nil, bytes.NewReader(j))
 }
 
 //WebUI - simple web user interface
@@ -169,20 +176,20 @@ func (c *Client) WebUI() http.Handler {
 				input, select, textarea {
 					background: #566b7f;
 					width: 100px;
-					max-width: 25%;
+					max-width: 33%;
 					border: 0;
 					padding: 10px 15px;
 					color: #fff;
 					border-radius: 2px;
 					font-family: 'Roboto Mono';
 					margin-right: 2px;
+					margin-bottom: 4px;
 				}
-				input, select {
+				input, select, textarea {
 					width: 100%;
 				}
-				textarea {
-					width: 200px;
-					min-height: 48px;
+				input::placeholder {
+					color: #ddd;
 				}
 				button {
 					display: inline-block;
@@ -210,9 +217,11 @@ func (c *Client) WebUI() http.Handler {
 								<option value="keys">KEYS</option>
 								<option value="setexpires">SET EXPIRES</option>
 								<option value="getexpires">GET EXPIRES</option>
+								<option value="login">LOGIN</option>
 							</select>
 							<input type="text" name="first">
 							<textarea type="text" name="second"></textarea>
+							<input type="text" name="token" placeholder="token">
 						</div>
 						<button onclick="process()">Go</button>
 					</div>
@@ -229,7 +238,7 @@ func (c *Client) WebUI() http.Handler {
 				}
 			});
 			$('select').change(function() {
-				$('input, textarea').val('');
+				$('input, textarea').not('[name=token]').val('');
 				if ($(this).val() == 'keys') {
 					$('input[name=first]').val('*');
 				}
@@ -242,7 +251,6 @@ func (c *Client) WebUI() http.Handler {
 					data.push($(elem).attr('name')+'='+encodeURIComponent(val));
 				});
 				var body = data.join('&');
-				console.log(body);
 				$.ajax({
 					url: '/process',
 					type: 'POST',
@@ -274,24 +282,27 @@ func (c *Client) ProcessWebUI() http.Handler {
 		command := r.PostFormValue("command")
 		first := r.PostFormValue("first")
 		second := r.PostFormValue("second")
+		token := r.PostFormValue("token")
 		switch command {
 		case "ping":
 			fmt.Fprint(w, c.Ping())
 		case "set":
-			fmt.Fprint(w, c.Set(first, second))
+			fmt.Fprint(w, c.Set(first, second, token))
 		case "get":
-			fmt.Fprint(w, c.Get(first))
+			fmt.Fprint(w, c.Get(first, token))
 		case "getindex":
-			fmt.Fprint(w, c.GetIndex(first, second))
+			fmt.Fprint(w, c.GetIndex(first, second, token))
 		case "remove":
-			fmt.Fprint(w, c.Remove(first))
+			fmt.Fprint(w, c.Remove(first, token))
 		case "keys":
-			fmt.Fprint(w, c.Keys(first))
+			fmt.Fprint(w, c.Keys(first, token))
 		case "setexpires":
 			expires, _ := strconv.ParseInt(second, 10, 64)
-			fmt.Fprint(w, c.SetExpires(first, expires))
+			fmt.Fprint(w, c.SetExpires(first, expires, token))
 		case "getexpires":
-			fmt.Fprint(w, c.GetExpires(first))
+			fmt.Fprint(w, c.GetExpires(first, token))
+		case "login":
+			fmt.Fprint(w, c.Login(first, second))
 		default:
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 		}
