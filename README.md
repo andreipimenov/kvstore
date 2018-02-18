@@ -97,3 +97,28 @@ WantedBy=multi-user.target
 systemctl start kvserver
 systemctl enable kvserver
 ```
+
+### Unit-тесты
+
+Примеры тестов функций создания и получения ключей, конфигурирования сервера и роутера сервера
+
+```
+go test ./store
+
+=== RUN   TestSetGet
+--- PASS: TestSetGet (0.00s)
+PASS
+ok      github.com/andreipimenov/kvstore/store  0.551s
+```
+
+```
+go test ./cmd/server
+
+=== RUN   TestNewConfig
+--- PASS: TestNewConfig (0.00s)
+=== RUN   TestPingHandler
+2018/02/18 20:00:42 "GET http://127.0.0.1:8080 HTTP/1.1" from  - 200 18B in 0s
+--- PASS: TestPingHandler (0.00s)
+PASS
+ok      github.com/andreipimenov/kvstore/cmd/server     1.056s
+```
