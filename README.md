@@ -50,7 +50,7 @@ curl -X GET 127.0.0.1:8080/api/v1/keys/hell/values
 {"value":"Java"}
 ```
 
-### Сборка и развертывание
+### Сборка и запуск
 
 Билд сервера и клиента
 ```
@@ -61,9 +61,12 @@ go build -o ./bin/client ./cmd/client
  - port — порт приложения (по умолчанию, 8080 для сервера и 8090 для клиента)
  - config — путь к файлу конфигурации (например, файл конфигурации сервера <https://github.com/andreipimenov/kvstore/blob/master/etc/server.conf.json>)
  Дополнительно при запуске клиента можно указать флаг:
- - server — строка в формате host:port (например, 127.0.0.1:8080)
+ - server — строка в формате host:port для связи с сервером (например, 127.0.0.1:8080)
 
-Запуск как systemd сервис.
+Пример создания ключа через веб-интерфейс клиента
+![](https://github.com/andreipimenov/kvstore/blob/master/asset/client.example.jpg)
+
+Запуск сервера в виде systemd сервиса.
 Например, запуск сервера от пользователя user:
 ```
 nano /usr/lib/systemd/system/kvserver.service
