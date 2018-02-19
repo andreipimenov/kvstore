@@ -52,8 +52,30 @@ curl -X GET 127.0.0.1:8080/api/v1/keys/hell/values
 
 ### Сборка и запуск
 
-Билд сервера и клиента
+#### Пример запуска сервера через Docker
+
+Для этого требуется установленный Docker
+
+Билд образа
 ```
+docker build -t kvserver .
+```
+Запуск контейнера
+```
+docker run -d -p 8080:8080 kvserver
+```
+Теперь доступ к запущенному в контейнеру серверу будет осуществляться через 127.0.0.1:8080 с хоста.
+Конфигурация сервера возможна через переменные окружения. Обработку переменных окружения и сохранение нужного конфигурационного файла обеспечивает entrypoint.sh. Для примера, можно изменить порт сервера внутри контейнера с помощью переменной окружения PORT
+```
+docker run -d -p 8080:3000 -e PORT=3000 kvserver
+```
+
+#### Пример запуска без Docker
+
+Билд сервера и клиента (требуется установленный Go)
+```
+go get -u github.com/golang/dep/cmd/dep
+dep ensure
 go build -o ./bin/server ./cmd/server
 go build -o ./bin/client ./cmd/client
 ```
@@ -66,8 +88,7 @@ go build -o ./bin/client ./cmd/client
 Пример создания ключа через веб-интерфейс клиента
 ![](https://github.com/andreipimenov/kvstore/blob/master/asset/client.example.jpg)
 
-Запуск сервера в виде systemd сервиса.
-Например, запуск сервера от пользователя user:
+Пример запуска сервера в качестве сервиса systemd от пользователя u
 ```
 nano /usr/lib/systemd/system/kvserver.service
 ```
