@@ -12,4 +12,4 @@ RUN go build -o /go/bin/server cmd/server/*.go
 
 ENTRYPOINT ["/go/src/github.com/andreipimenov/kvstore/entrypoint.sh"]
 
-CMD server --config=etc/server.conf.json
+CMD server --config=/etc/server.conf.json
